@@ -1,55 +1,6 @@
 import json
 import os
 import sys
-import urllib.request
-
-
-class LLMError(Exception):
-    """Raised when the LLM API call fails."""
-
-
-def call_llm(messages, model=None, api_key=None, base_url=None):
-    """Call an OpenAI-compatible chat completion API.
-
-    Parameters are read from environment variables by default:
-      LLM_BASE_URL  - e.g. "https://api.openai.com/v1" or "http://localhost:11434/v1"
-      LLM_API_KEY   - your API key
-      LLM_MODEL     - model name (e.g. "gpt-4o-mini")
-
-    Returns the assistant text response, or raises LLMError on failure.
-    """
-    base_url = base_url or os.environ.get("LLM_BASE_URL", "")
-    api_key = api_key or os.environ.get("LLM_API_KEY", "")
-    model = model or os.environ.get("LLM_MODEL", "gpt-4o-mini")
-
-    if not base_url or not api_key:
-        raise LLMError(
-            "LLM is not configured. Set LLM_BASE_URL and LLM_API_KEY in .env."
-        )
-
-    url = f"{base_url.rstrip('/')}/chat/completions"
-    payload = json.dumps({
-        "model": model,
-        "messages": messages,
-        "temperature": 0.3,
-    }).encode()
-
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}",
-    }
-
-    req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        body = json.loads(resp.read().decode())
-        return body["choices"][0]["message"]["content"]
-
-
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass
 
 API_KEY = os.environ.get("OPENWEATHER_API_KEY")
 
@@ -75,6 +26,8 @@ def get_weather(city):
 
     query = parse.urlencode({"q": city, "appid": API_KEY, "units": "metric"})
     url = "https://api.openweathermap.org/data/2.5/weather?" + query
+
+    import urllib.request
 
     try:
         req = urllib.request.Request(url)

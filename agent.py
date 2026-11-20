@@ -1,4 +1,5 @@
-from weather_tool import get_weather, format_weather_summary, call_llm, LLMError
+from llm_client import call_llm, LLMError
+from weather_tool import get_weather, format_weather_summary
 from clothing_tool import suggest_clothing, format_clothing_suggestions
 
 import sys
