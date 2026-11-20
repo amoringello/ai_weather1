@@ -1,7 +1,7 @@
 from llm_client import call_llm, LLMError
 from weather_tool import get_weather, format_weather_summary
-from clothing_tool import suggest_clothing, format_clothing_suggestions
 
+import json
 import sys
 
 
@@ -19,12 +19,6 @@ class WeatherAgent:
     """An agentic AI that uses an LLM to parse user input, fetches weather
     via tools, and generates clothing suggestions — all driven by AI."""
 
-    def __init__(self):
-        self.tools = {
-            "weather": self._execute_weather_tool,
-            "clothing": self._execute_clothing_tool,
-        }
-
     # ------------------------------------------------------------------
     # LLM-powered intent extraction
     # ------------------------------------------------------------------
@@ -39,11 +33,11 @@ class WeatherAgent:
         "the city; otherwise null\n"
         "\n"
         "Rules:\n"
-        "  - Greetings (hello/hi/hey, etc.) -> intent = \"greeting\"\n"
-        "  - A bare location without any explicit request -> intent = \"weather\"\n"
-        "  - Clothing keywords (wear/clothes/dress/etc.) near a city -> intent = \"clothing\"\n"
-        "  - Everything else with no city -> intent = \"general\"\n"
-        '  - Strip punctuation from the city name\n'
+        '  - Greetings (hello/hi/hey, etc.) -> intent = "greeting"\n'
+        '  - A bare location without any explicit request -> intent = "weather"\n'
+        '  - Clothing keywords (wear/clothes/dress/etc.) near a city -> intent = "clothing"\n'
+        '  - Everything else with no city -> intent = "general"\n'
+        "  - Strip punctuation from the city name\n"
         "  - Return ONLY valid JSON - no markdown, no backticks, no explanation."
     )
 
@@ -51,21 +45,28 @@ class WeatherAgent:
         'Message: "{user_message}"'
     )
 
-    _RESPONSE_PROMPT_TEMPLATE = (
-        "The user asked: \"{user_message}\"\n\n"
-        "Current weather data:\n{weather_summary}\n\n"
-        "Your task:\n"
-        "  - If intent was a greeting, respond warmly and briefly describe your abilities.\n"
-        "  - If intent was general (no city), explain what you can do with examples.\n"
-        "  - If intent was weather or clothing, provide a helpful natural-language\n"
-        "    summary of the weather AND practical clothing recommendations based on\n"
-        "    temperature, humidity, wind, and conditions.  Sound like a caring friend,\n"
-        "    not a robot."
+    _RESPONSE_SYSTEM_PROMPT = (
+        "You are a helpful weather assistant. Given current conditions, provide "
+        "a natural-language summary of the weather AND practical clothing recommendations. "
+        "Base your suggestions on temperature, humidity, wind, and conditions. "
+        "Finally summarize the suggestion with contextual emoji bullet points relating to each related weather condition. Summary should also include emoji bullet points for the resulting suggested clothing option."
     )
+
+    _RESPONSE_USER_TEMPLATE = (
+        "User asked: {user_message}\n\n"
+        "Current weather for {city}:\n"
+        "  Temperature     : {temp}°C (feels like {feels_like}°C)\n"
+        "  Condition       : {condition}\n"
+        "  Humidity        : {humidity}%\n"
+        "  Wind speed      : {wind} m/s\n"
+    )
+
+    # ------------------------------------------------------------------
+    # Intent extraction
+    # ------------------------------------------------------------------
 
     def _extract_intent(self, user_message):
         """Ask the LLM to parse the user message and return structured intent."""
-        import json
 
         try:
             messages = [
@@ -89,7 +90,7 @@ class WeatherAgent:
             sys.exit(1)
 
     # ------------------------------------------------------------------
-    # Tool execution helpers
+    # Tool execution
     # ------------------------------------------------------------------
 
     def _build_query(self, city, state):
@@ -106,37 +107,22 @@ class WeatherAgent:
         if not query:
             return None
         w = get_weather(query)
-        return {
-            "query": query,
-            "weather": w,
-            "summary": format_weather_summary(w),
-            "display_city": f"{city} {state.upper()}".strip() if state else city,
-        }
-
-    def _execute_clothing_tool(self, weather_data):
-        """Generate clothing suggestions from weather data."""
-        suggestions = suggest_clothing(weather_data)
-        return format_clothing_suggestions(suggestions)
+        display = f"{city} {state.upper()}".strip() if state else city
+        return {"weather": w, "summary": format_weather_summary(w), "display_city": display}
 
     # ------------------------------------------------------------------
     # Main agent loop
     # ------------------------------------------------------------------
 
     def respond(self, user_message):
-        """Parse a natural-language message using AI, execute tools, and reply."""
+        """Parse intent, fetch weather, and let the LLM generate a response."""
 
-        # Step 1: LLM parses the intent
-        try:
-            parsed = self._extract_intent(user_message)
-        except LLMError as exc:
-            print(f"ERROR: {exc}", file=sys.stderr)
-            sys.exit(1)
-
+        parsed = self._extract_intent(user_message)
         intent = parsed["intent"]
         city = parsed["city"]
         state = parsed["state"]
 
-        # Greeting or general - respond without tools
+        # Non-weather intents — no tools needed
         if intent == "greeting":
             return (
                 "Hello! I am your weather assistant. I can check the current weather "
@@ -151,50 +137,39 @@ class WeatherAgent:
                 "(You can also include a state, e.g. Springfield IL, to disambiguate.)"
             )
 
-        # Step 2: Execute tools based on intent
+        # Fetch real weather data
         weather_result = self._execute_weather_tool(city, state)
 
         if not weather_result or "weather" not in weather_result:
             return f"I could not find the weather for {city}. Please check the spelling."
 
-        weather_data = weather_result["weather"]
-        summary = weather_result["summary"]
+        w = weather_result["weather"]
 
-        clothing_text = self._execute_clothing_tool(weather_data)
-
-        # Step 3: If only clothing was requested, skip full summary
-        if intent == "clothing":
-            return (
-                f"Here are my clothing suggestions for {weather_result['display_city']} "
-                f"based on current conditions:\n\n{clothing_text}"
-            )
-
-        # Step 4: Let the LLM craft a natural-language response using real weather data
-        llm_prompt = self._RESPONSE_PROMPT_TEMPLATE.format(
+        # Let the LLM generate both a weather summary and clothing suggestions
+        llm_prompt = self._RESPONSE_USER_TEMPLATE.format(
             user_message=user_message,
-            weather_summary=summary + "\n\nClothing suggestions:\n" + clothing_text,
+            city=weather_result["display_city"],
+            temp=w["temperature_c"],
+            feels_like=w["feels_like_c"],
+            condition=w["description"],
+            humidity=w["humidity"],
+            wind=w["wind_speed_ms"],
         )
 
         try:
-            llm_response = call_llm([{"role": "user", "content": llm_prompt}])
+            return call_llm([
+                {"role": "system", "content": self._RESPONSE_SYSTEM_PROMPT},
+                {"role": "user", "content": llm_prompt},
+            ])
         except LLMError as exc:
             print(f"ERROR: {exc}", file=sys.stderr)
             sys.exit(1)
 
-        if llm_response:
-            return llm_response
-
-        # Final fallback - hand-crafted response
-        return (
-            f"Hi there! Here is your update for {weather_result['display_city']}:\n\n"
-            + summary + "\n\n" + clothing_text
-        )
-
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python agent.py \"weather in Springfield IL\"")
-        print("       python agent.py \"What should I wear in London?\"")
+        print('Usage: python agent.py "weather in Springfield IL"')
+        print('       python agent.py "What should I wear in London?"')
         print()
         print("City + state (e.g. Springfield IL) disambiguates duplicate city names.")
         sys.exit(1)
