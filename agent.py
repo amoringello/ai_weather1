@@ -38,7 +38,7 @@ class WeatherAgent:
         '  - Clothing keywords (wear/clothes/dress/etc.) near a city -> intent = "clothing"\n'
         '  - Everything else with no city -> intent = "general"\n'
         "  - Strip punctuation from the city name\n"
-        "  - Return ONLY valid JSON - no markdown, no backticks, no explanation."
+        "  - Return ONLY valid JSON - no markdown, no backticks, no explanation, no thinking block text."
     )
 
     _INTENT_USER_FMT = (
@@ -86,7 +86,7 @@ class WeatherAgent:
                 "state": str(data["state"]).upper() if data.get("state") else None,
             }
         except (json.JSONDecodeError, KeyError, TypeError):
-            print("ERROR: LLM returned invalid JSON. Check model output.", file=sys.stderr)
+            print(f"ERROR: LLM returned invalid JSON. Check model output.\n{response}", file=sys.stderr)
             sys.exit(1)
 
     # ------------------------------------------------------------------
