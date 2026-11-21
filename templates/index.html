@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weather &amp; Wear — AI Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root {
+    --bg:#0c0e14;--surface:#151822;--card:#1c2030;--border:#282d40;
+    --text:#e2e5f0;--dim:#7b819a;--accent:#6c63ff;--glow:rgba(108,99,255,.28);
+    --r:14px;--ease:.3s cubic-bezier(.4,0,.2,1);
+}
+html{font-size:16px}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(ellipse 75% 55% at 15% 8%,rgba(108,99,255,.10) 0%,transparent 60%),radial-gradient(ellipse 55% 70% at 85% 92%,rgba(78,205,196,.07) 0%,transparent 60%)}
+.container{max-width:920px;margin:0 auto;padding:2rem 1.4rem 3.5rem;width:100%}
+header{text-align:center;margin-bottom:2.2rem}
+header h1{font-size:2.1rem;font-weight:800;background:linear-gradient(135deg,#6c63ff 40%,#4ecdc4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+header p{color:var(--dim);margin-top:.35rem;font-size:.9rem}
+.search-wrap{display:flex;gap:.55rem;margin-bottom:1.8rem}
+.search-input{flex:1;padding:.85rem 1.2rem;font-size:.95rem;font-family:inherit;background:var(--surface);color:var(--text);border:1.5px solid var(--border);border-radius:var(--r);outline:none;transition:border-color var(--ease),box-shadow var(--ease)}
+.search-input::placeholder{color:var(--dim)}
+.search-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
+.search-btn{padding:.85rem 1.6rem;font-size:.95rem;font-weight:600;font-family:inherit;color:#fff;background:linear-gradient(135deg,#6c63ff,#5a52e0);border:none;border-radius:var(--r);cursor:pointer;white-space:nowrap;transition:transform var(--ease),box-shadow var(--ease)}
+.search-btn:hover{transform:translateY(-1px);box-shadow:0 6px 22px var(--glow)}
+.search-btn:active{transform:translateY(0)}
+.search-btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.spinner-overlay{display:none;justify-content:center;align-items:center;padding:2.5rem 0}
+.spinner-overlay.active{display:flex}
+.spinner{width:38px;height:38px;border:3.5px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .75s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-card{background:rgba(255,107,107,.07);border:1px solid rgba(255,107,107,.25);border-radius:var(--r);padding:1.1rem 1.3rem;color:#ff9a9a;display:none}
+.error-card.visible{display:block;animation:fadeUp .4s ease-out}
+#results{display:none}
+#results.visible{display:block;animation:fadeUp .5s ease-out}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.city-card{display:flex;align-items:center;gap:.9rem;background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:1.2rem 1.5rem;margin-bottom:1rem}
+.city-flag{font-size:2.6rem}
+.city-info h2{font-size:1.35rem;font-weight:700}
+.city-info .sub{color:var(--dim);font-size:.82rem;margin-top:.15rem}
+.weather-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1rem}
+.w-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:1.1rem .9rem;text-align:center;transition:transform var(--ease),box-shadow var(--ease)}
+.w-card:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(0,0,0,.3)}
+.w-card .icon{font-size:1.5rem;margin-bottom:.25rem}
+.w-card .value{font-size:1.25rem;font-weight:700}
+.w-card .label{color:var(--dim);font-size:.75rem;text-transform:uppercase;letter-spacing:.5px;margin-top:.15rem}
+.response-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:1.5rem;line-height:1.7;font-size:.93rem}
+.response-card h3{font-size:1.05rem;margin-bottom:.7rem;font-weight:700}
+.response-card h1,.response-card h2,.response-card h3,.response-card h4{margin:1rem 0 .35rem;color:#fff}
+.response-card p{margin-bottom:.55rem}
+.response-card ul,.response-card ol{padding-left:1.3rem;margin-bottom:.55rem}
+.response-card li{margin-bottom:.2rem}
+.response-card strong{color:#fff}
+.empty-state{text-align:center;padding:2.8rem 1rem;color:var(--dim)}
+.empty-state .big-icon{font-size:3.2rem;margin-bottom:.7rem;opacity:.5}
+.empty-state p{max-width:400px;margin:0 auto;line-height:1.6;font-size:.9rem}
+footer{text-align:center;padding:1.8rem 1rem .5rem;color:var(--dim);font-size:.75rem}
+@media(max-width:640px){header h1{font-size:1.55rem}.weather-grid{grid-template-columns:repeat(2,1fr)}.search-wrap{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="container">
+    <header><h1>&#9728;&#65039; Weather &amp; Wear</h1><p>AI-powered weather check and smart clothing suggestions</p></header>
+    <form id="searchForm" class="search-wrap" onsubmit="return handleSubmit(event)">
+        <input type="text" class="search-input" id="queryInput" placeholder='Try: "Weather in Tokyo" or "What to wear in Springfield IL"' autocomplete="off">
+        <button type="submit" class="search-btn" id="searchBtn">Check</button>
+    </form>
+    <div class="spinner-overlay" id="loading"><div class="spinner"></div></div>
+    <div class="error-card" id="errorCard"></div>
+    <div id="results"></div>
+    <div class="empty-state" id="emptyState">
+        <div class="big-icon">&#9729;&#65039;</div><p>Type a city above to get the current weather and AI-powered clothing suggestions.</p>
+    </div>
+    <footer>Weather data from OpenWeatherMap &middot; Responses generated by LLM</footer>
+</div>
+<script>
+var WEATHER_ICONS={200:"storm",201:"storm",202:"storm",230:"storm",231:"storm",232:"storm",300:"drizzle",301:"drizzle",302:"rain",310:"rain",311:"rain",312:"rain",313:"rain",314:"rain",500:"rain",501:"rain",502:"rain",503:"rain",504:"rain",511:"ice",520:"drizzle",521:"drizzle",531:"rain",600:"snow",601:"snow",602:"snow",611:"flurries",612:"flurries",615:"flurries",616:"flurries",620:"flurries",621:"flurries",622:"flurries",701:"fog",711:"fog",721:"fog",731:"fog",741:"fog",751:"fog",761:"fog",762:"volcano",771:"wind",781:"tornado",800:"clear",801:"partly_cloudy",802:"partly_cloudy",803:"clouds",804:"clouds"};
+
+function iconFor(c,d){
+  if(!WEATHER_ICONS[c])return(d||'').indexOf('rain')>=0?'🌧️':(d||'').indexOf('snow')>=0?'❄️':'☀';
+  var v=WEATHER_ICONS[c];
+  var map={"storm":"⛈","drizzle":"🌦","rain":"🌧","ice":"🧊","flurries":"🌨","snow":"❄","fog":"🌫","volcano":"🌋","wind":"💨","tornado":"🌪","clear":"☀","partly_cloudy":"⛅","clouds":"☁"};
+  return map[v]||'⛅';
+}
+
+function countryFlag(code){
+  if(!code||code.length!==2)return'🏳';
+  var c1=String.fromCodePoint(127397+code.toUpperCase().charCodeAt(0)-65);
+  var c2=String.fromCodePoint(127397+code.toUpperCase().charCodeAt(1)-65);
+  return c1+c2;
+}
+
+function tempColor(c){
+  if(c>=35)return'#ff6b6b';if(c>=28)return'#ffa502';if(c>=20)return'#ffd32a';if(c>=12)return'#7bed9f';return'#74b9ff'
+}
+
+function $(id){return document.getElementById(id)}
+
+function hideEmptyState(){var es=$('emptyState');if(es)es.style.display='none'}
+function showResultsVisible(el){el.classList.add('visible');hideEmptyState()}
+
+function renderResults(data){
+  var el=$('results');
+  if(!el)return;
+
+  if(data.weather&&data.response){
+    var f=countryFlag(data.weather.country);
+    var tc=tempColor(data.weather.temperature_c);
+    var flc=tempColor(data.weather.feels_like_c);
+    var hc=data.weather.humidity>70?'#74b9ff':'#a0a5c0';
+    var cc=data.weather.humidity>60?'#ffd32a':'#a0a5c0';
+
+    var html='<div class="city-card">';
+    html+='<span class="city-flag">'+f+'</span>';
+    html+='<div class="city-info"><h2>'+esc(data.display_city||data.weather.city)+'</h2>';
+    html+='<div class="sub">'+esc(data.weather.description)+' · '+fmtTime(data.weather.timestamp)+'</div></div></div>';
+
+    html+='<div class="weather-grid">';
+    html+='<div class="w-card"><div class="icon">&#127773;</div><div class="value" style="color:'+tc+'">'+data.weather.temperature_c+'&deg;C</div><div class="label">Temperature</div></div>';
+    html+='<div class="w-card"><div class="icon">&#127773;</div><div class="value" style="color:'+flc+'">'+data.weather.feels_like_c+'&deg;C</div><div class="label">Feels Like</div></div>';
+    html+='<div class="w-card"><div class="icon">&#128167;</div><div class="value" style="color:'+hc+'">'+data.weather.humidity+'%</div><div class="label">Humidity</div></div>';
+    html+='<div class="w-card"><div class="icon">&#128167;</div><div class="value">'+data.weather.wind_speed_ms+' m/s</div><div class="label">Wind</div></div>';
+    html+='<div class="w-card"><div class="icon">&#9729;</div><div class="value" style="color:'+cc+'">'+esc(data.weather.description)+'</div><div class="label">Condition</div></div>';
+    html+='<div class="w-card"><div class="icon">&#128337;</div><div class="value" style="font-size:.9rem">'+fmtTimeShort(data.weather.timestamp)+'</div><div class="label">Updated</div></div>';
+    html+='</div>';
+
+    try{
+      html+='<div class="response-card"><h3>Clothing Suggestions</h3>'+marked.parse(data.response)+'</div>';
+    }catch(e){
+      html+='<div class="response-card"><p>'+esc(String(data.response))+'</p></div>';
+    }
+
+    el.innerHTML=html;
+    showResultsVisible(el);
+  } else if(data.response){
+    try{
+      el.innerHTML='<div class="response-card"><h3>Weather &amp; Wear</h3>'+marked.parse(data.response)+'</div>';
+    }catch(e){
+      el.innerHTML='<div class="response-card">'+esc(data.response)+'</div>';
+    }
+    showResultsVisible(el);
+  }
+}
+
+async function handleSubmit(e){
+  e.preventDefault();
+  var q=$('queryInput').value.trim();
+  if(!q)return false;
+  var btn=$('searchBtn');
+  btn.disabled=true;
+  // hide results and empty state during loading
+  $('results').classList.remove('visible');
+  $('emptyState').style.display='none';
+  $('loading').classList.add('active');
+  try{
+    var r=await fetch('/api/query',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q})});
+    var d=await r.json();
+    if(!r.ok||d.error){
+      $('errorCard').textContent='⚠️  '+(d.error||'Something went wrong');
+      $('errorCard').classList.add('visible');
+      $('loading').classList.remove('active');
+      return;
+    }
+    renderResults(d);
+  }catch(err){
+    $('errorCard').textContent='⚠️  Could not reach the server.';
+    $('errorCard').classList.add('visible');
+    $('loading').classList.remove('active');
+  }
+  btn.disabled=false;
+  return false;
+}
+
+function esc(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
+
+function fmtTime(iso){try{return new Date(iso).toLocaleString(undefined,{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'})}catch(e){return iso}}
+
+function fmtTimeShort(iso){try{return new Date(iso).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})}catch(e){return''}}
+</script>
+</body>
+</html>

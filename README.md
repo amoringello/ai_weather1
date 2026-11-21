@@ -1,36 +1,57 @@
-# Weather + Clothing Suggestion Agent
+# Weather & Wear — AI Assistant
 
-A simple agentic AI that monitors weather and suggests what to wear.
+A smart weather checker that suggests what to wear, powered by an LLM.
+
+## Quick Start
+
+### Web Dashboard (recommended)
+
+```bash
+cd ai_agent/
+python3 server.py --debug
+# → open http://localhost:8080 in your browser
+```
+
+### CLI
+
+```bash
+python3 agent.py "What is the weather in Tokyo?"
+python3 agent.py "What should I wear in Springfield IL?"
+```
 
 ## Files
 
-| File             | Purpose                                   |
-|------------------|-------------------------------------------|
-| `agent.py`       | Main agent class with natural language parsing |
-| `weather_tool.py`| Fetches weather (API or mock data)        |
-| `clothing_tool.py`| Suggests clothing based on conditions    |
+| File                  | Purpose                                    |
+|-----------------------|--------------------------------------------|
+| `agent.py`            | Core agent class — LLM intent parsing + response generation |
+| `server.py`           | Flask web server with dashboard UI         |
+| `templates/index.html`| Modern dark-mode dashboard (HTML/CSS/JS)   |
+| `weather_tool.py`     | OpenWeatherMap API client                  |
+| `llm_client.py`       | OpenAI-compatible LLM client               |
 
-## Usage
+## Configuration
+
+Copy `.env_sample` to `.env` and fill in your keys:
 
 ```bash
-# Run the built-in demo
-python3 agent.py
-
-# Natural language interaction
-python3 agent.py "What is the weather in Paris?"
-python3 agent.py "What should I wear in Tokyo?"
+cp .env_sample .env
 ```
 
-## How It Works
+| Variable          | Description                                      |
+|-------------------|--------------------------------------------------|
+| `OPENWEATHER_API_KEY` | Your OpenWeatherMap API key                    |
+| `LLM_BASE_URL`      | LLM endpoint (e.g. `https://api.openai.com/v1`) |
+| `LLM_API_KEY`       | Your LLM API key                                 |
+| `LLM_MODEL`         | Model name (default: `gpt-4o-mini`)              |
 
-1. **Agent** receives a user message (natural language).
-2. It extracts a **city name** from the message.
-3. The **weather tool** fetches current conditions for that city (uses mock data by default; add an OpenWeatherMap API key to use real data).
-4. The **clothing tool** analyzes temperature, humidity, wind, and conditions to generate personalized outfit suggestions.
+## Web Server Options
 
-## Adding Real Weather Data
+```bash
+python3 server.py                    # default host 0.0.0.0, port 8080
+python3 server.py --port 8080        # custom port
+python3 server.py --host localhost   # bind to localhost only
+python3 server.py --debug            # enable Flask debug mode
 
-```python
-agent = WeatherAgent(api_key="your-openweathermap-key")
-result = agent.run("San Francisco")
+# Or via environment variables:
+FLASK_HOST=0.0.0.0 FLASK_PORT=8080 python3 server.py
 ```
